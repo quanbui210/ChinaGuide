@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "Attraction": {
+      "title": "Attraction",
+      "description": "A tourist attraction in Shanghai",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "hours": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "category": { 
+          "type": "string",
+          "enum": ["food", "drink", "visit"]
+        },
+        "city": { "type": "string", "enum": ["shanghai", "hangzhou", "wuzhen"] },
+        "isSignature": { "type": "boolean" },
+        "longDescription": { "type": "string" },
+        "galleryImages": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "category"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "A pre-trip reminder for users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "category": { "type": "string" },
+        "link": { "type": "string" },
+        "detailedGuidance": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text"]
+    },
+    "Tour": {
+      "title": "Tour",
+      "description": "A scheduled tour",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "date": { "type": "string" },
+        "price": { "type": "string" },
+        "guests": { "type": "integer" },
+        "planRoute": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientName", "date", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile with role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Hotel": {
+      "title": "Hotel",
+      "description": "A hotel in Shanghai",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "location": { "type": "string" },
+        "city": { "type": "string", "enum": ["shanghai", "hangzhou", "wuzhen"] },
+        "isNearCenter": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "longDescription": { "type": "string" },
+        "galleryImages": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "price", "location"]
+    },
+    "City": {
+      "title": "City",
+      "description": "A city destination.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "cityId": { "type": "string", "enum": ["shanghai", "hangzhou", "wuzhen"] },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["cityId", "name", "description", "imageUrl"]
+    }
+  },
+  "firestore": {
+    "/attractions/{attractionId}": {
+      "schema": "Attraction",
+      "description": "Collection of attractions"
+    },
+    "/reminders/{reminderId}": {
+      "schema": "Reminder",
+      "description": "Collection of pre-trip reminders"
+    },
+    "/tours/{tourId}": {
+      "schema": "Tour",
+      "description": "Collection of scheduled tours"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/hotels/{hotelId}": {
+      "schema": "Hotel",
+      "description": "Collection of hotels"
+    },
+    "/cities/{cityId}": {
+      "schema": "City",
+      "description": "Collection of cities."
+    }
+  }
+}

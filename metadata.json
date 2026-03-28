@@ -1,0 +1,5 @@
+{
+  "name": "China Guide",
+  "description": "A professional tour guide platform for exploring China's best attractions, foods, and experiences with a full admin dashboard.",
+  "requestFramePermissions": ["geolocation"]
+}
