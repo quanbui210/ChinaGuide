@@ -25,7 +25,6 @@ export default function Navbar({ userProfile, onContactClick }: NavbarProps) {
         </Link>
 
         <div className="flex items-center gap-6">
-          <Link to="/" className="text-sm font-medium hover:text-orange-600 transition-colors">Khám phá</Link>
           <button 
             onClick={onContactClick}
             className="text-sm font-medium hover:text-orange-600 transition-colors"

@@ -74,7 +74,7 @@ export default function Home() {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [selectedCity, setSelectedCity] = useState<CityId | null>(null);
-  const [filter, setFilter] = useState<Category | 'all' | 'signature'>('all');
+  const [filter, setFilter] = useState<Category | 'all' | 'signature' | 'hotel'>('all');
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
   const [selectedItem, setSelectedItem] = useState<Attraction | Hotel | null>(null);
   const [showMap, setShowMap] = useState(false);
@@ -151,12 +151,13 @@ export default function Home() {
     return 0;
   });
 
-  const categories: { id: Category | 'all' | 'signature', label: string, icon: any }[] = [
+  const categories: { id: Category | 'all' | 'signature' | 'hotel', label: string, icon: any }[] = [
     { id: 'all', label: 'Tất cả', icon: MapPin },
     { id: 'signature', label: 'Biểu tượng', icon: Star },
     { id: 'visit', label: 'Tham quan', icon: MapPin },
     { id: 'food', label: 'Ẩm thực', icon: Utensils },
     { id: 'drink', label: 'Đồ uống', icon: GlassWater },
+    { id: 'hotel', label: 'Khách sạn', icon: HotelIcon },
   ];
 
   if (!selectedCity) {
@@ -247,7 +248,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="space-y-16 p-4 md:p-8 bg-white rounded-3xl shadow-sm border border-stone-100">
         {/* Reminders Section */}
-        {reminders.length > 0 && selectedCity === 'shanghai' && (
+        {reminders.length > 0 && selectedCity === 'shanghai' && filter === 'all' && (
           <section className="space-y-6">
             <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
               <CheckCircle2 className="w-6 h-6 text-orange-600" />
@@ -274,7 +275,7 @@ export default function Home() {
         )}
 
         {/* Hotels Section */}
-        {cityHotels.length > 0 && (
+        {cityHotels.length > 0 && (filter === 'all' || filter === 'hotel') && (
           <section className="space-y-8">
             <div className="flex items-center justify-between border-b border-stone-100 pb-4">
               <div className="flex items-center gap-3">
@@ -330,7 +331,7 @@ export default function Home() {
               </section>
             )}
           </>
-        ) : (
+        ) : filter === 'hotel' ? null : (
           /* Filtered Grid */
           <section className="space-y-8">
             <div className="flex items-center gap-3 border-b border-stone-100 pb-4">

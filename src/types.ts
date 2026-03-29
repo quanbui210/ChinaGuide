@@ -27,6 +27,20 @@ export interface Reminder {
   createdAt: string;
 }
 
+export interface ItineraryItem {
+  timeBlock: string;
+  locationId?: string;
+  customLocation?: string;
+  details?: string;
+  subItems?: string[];
+}
+
+export interface ItineraryDay {
+  dayNumber: number;
+  title?: string;
+  items: ItineraryItem[];
+}
+
 export interface Tour {
   id: string;
   clientName: string;
@@ -34,6 +48,9 @@ export interface Tour {
   price: string;
   guests: number;
   planRoute: string;
+  hotelId?: string;
+  customHotel?: string;
+  itinerary?: ItineraryDay[];
   status: 'scheduled' | 'completed' | 'cancelled';
   notes: string;
   createdAt: string;

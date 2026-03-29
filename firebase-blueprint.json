@@ -51,6 +51,32 @@
         "price": { "type": "string" },
         "guests": { "type": "integer" },
         "planRoute": { "type": "string" },
+        "itinerary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dayNumber": { "type": "integer" },
+              "title": { "type": "string" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "timeBlock": { "type": "string" },
+                    "locationId": { "type": "string" },
+                    "customLocation": { "type": "string" },
+                    "details": { "type": "string" },
+                    "subItems": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
         "notes": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }

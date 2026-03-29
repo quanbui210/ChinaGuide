@@ -3,8 +3,10 @@ import { collection, onSnapshot, query, orderBy, deleteDoc, doc, addDoc, setDoc,
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Attraction, Reminder, UserProfile, Tour, Hotel, City, CityId } from '../types';
 import { Navigate } from 'react-router-dom';
-import { Plus, Trash2, Edit2, LayoutDashboard, MapPin, BellRing, CalendarDays, Users, ShieldCheck, Hotel as HotelIcon, Globe, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, LayoutDashboard, MapPin, BellRing, CalendarDays, Users, ShieldCheck, Hotel as HotelIcon, Globe, ChevronDown, ChevronUp, FileDown, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { TourPDF } from '../components/TourPDF';
 import AdminForm from '../components/AdminForm';
 import ReminderForm from '../components/ReminderForm';
 import TourForm from '../components/TourForm';
@@ -17,74 +19,234 @@ interface AdminProps {
 
 interface TourCardProps {
   tour: Tour;
+  attractions: Attraction[];
+  hotels: Hotel[];
   onEdit: (tour: Tour) => void;
   onDelete: (id: string) => void;
 }
 
-function TourCard({ tour, onEdit, onDelete }: TourCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasLongRoute = tour.planRoute && tour.planRoute.length > 100;
+interface ActionMenuProps {
+  onEdit: () => void;
+  onDelete: () => void;
+  deleteLabel?: string;
+}
+
+function ActionMenu({ onEdit, onDelete, deleteLabel = "Xóa" }: ActionMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="p-6 bg-white rounded-[2rem] border border-stone-100 shadow-sm space-y-4 group relative hover:border-orange-200 transition-all">
+    <div className="relative">
+      <button 
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+        className="p-2 text-stone-400 hover:text-stone-900 transition-colors rounded-full hover:bg-stone-100"
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 5 }}
+              className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-stone-100 py-1.5 z-20"
+            >
+              <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 transition-colors text-left"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-orange-500" />
+                Chỉnh sửa
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors text-left"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {deleteLabel}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function TourCard({ tour, attractions, hotels, onEdit, onDelete }: TourCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  const getLocationName = (id?: string) => {
+    if (!id) return null;
+    return attractions.find(a => a.id === id)?.name;
+  };
+
+  const getHotelName = () => {
+    if (tour.hotelId) {
+      return hotels.find(h => h.id === tour.hotelId)?.name;
+    }
+    return tour.customHotel;
+  };
+
+  const hotelName = getHotelName();
+  const hasItinerary = tour.itinerary && tour.itinerary.length > 0;
+
+  return (
+    <div className="p-6 bg-white rounded-[2.5rem] border border-stone-100 shadow-sm space-y-6 group relative hover:border-orange-200 transition-all">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
           <h3 className="text-lg font-bold text-stone-900">{tour.clientName}</h3>
           <div className="flex flex-wrap items-center gap-3 text-[10px] text-stone-400 font-bold uppercase tracking-wider">
             <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {tour.date}</span>
             <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {tour.guests} Khách</span>
+            {hotelName && (
+              <span className="flex items-center gap-1 text-orange-600">
+                <HotelIcon className="w-3 h-3" /> {hotelName}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-full ${
+          <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-full whitespace-nowrap ${
             tour.status === 'scheduled' ? 'bg-blue-50 text-blue-600' : 
             tour.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
           }`}>
             {tour.status === 'scheduled' ? 'Đã lên lịch' : 
              tour.status === 'completed' ? 'Đã hoàn thành' : 'Đã hủy'}
           </span>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="relative">
             <button 
-              onClick={() => onEdit(tour)}
-              className="p-1.5 text-stone-400 hover:text-orange-600 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+              className="p-2 text-stone-400 hover:text-stone-900 transition-colors rounded-full hover:bg-stone-100"
             >
-              <Edit2 className="w-4 h-4" />
+              <MoreVertical className="w-5 h-5" />
             </button>
-            <button 
-              onClick={() => onDelete(tour.id)}
-              className="p-1.5 text-stone-400 hover:text-red-600 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+
+            <AnimatePresence>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }} />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-stone-100 py-2 z-20"
+                  >
+                    <PDFDownloadLink
+                      document={<TourPDF tour={tour} attractions={attractions} hotels={hotels} />}
+                      fileName={`Lich_Trinh_Tour_${tour.clientName || 'Khach'}.pdf`}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition-colors"
+                      onClick={() => setShowMenu(false)}
+                    >
+                      <FileDown className="w-4 h-4 text-orange-500" />
+                      Xuất PDF
+                    </PDFDownloadLink>
+                    <button 
+                      onClick={() => { onEdit(tour); setShowMenu(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition-colors text-left"
+                    >
+                      <Edit2 className="w-4 h-4 text-orange-500" />
+                      Chỉnh sửa
+                    </button>
+                    <div className="h-px bg-stone-50 my-1 mx-2" />
+                    <button 
+                      onClick={() => { onDelete(tour.id); setShowMenu(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Xóa Tour
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {tour.planRoute && (
+      {hasItinerary ? (
+        <div className="space-y-4">
+          <div 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`space-y-4 cursor-pointer transition-all ${!isExpanded ? 'max-h-48 overflow-hidden relative' : ''}`}
+          >
+            {tour.itinerary?.map((day, dIdx) => (
+              <div key={dIdx} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 bg-stone-900 text-white text-[10px] font-bold rounded-lg flex items-center justify-center">
+                    {day.dayNumber}
+                  </span>
+                  <span className="text-xs font-bold text-stone-900">{day.title || `Ngày ${day.dayNumber}`}</span>
+                </div>
+                <div className="ml-3 pl-5 border-l border-stone-100 space-y-4">
+                  {day.items.map((item, iIdx) => (
+                    <div key={iIdx} className="relative space-y-1">
+                      <div className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-stone-200 border-2 border-white" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold uppercase text-stone-400 w-10">{item.timeBlock}</span>
+                        <span className="text-[11px] font-bold text-stone-800">
+                          {getLocationName(item.locationId) || item.customLocation}
+                        </span>
+                      </div>
+                      {item.details && (
+                        <p className="text-[10px] text-stone-500 ml-12 leading-relaxed">{item.details}</p>
+                      )}
+                      {item.subItems && item.subItems.length > 0 && (
+                        <div className="ml-12 flex flex-wrap gap-2 pt-1">
+                          {item.subItems.map((sub, sIdx) => (
+                            <span key={sIdx} className="text-[9px] bg-stone-50 text-stone-400 px-2 py-0.5 rounded-md border border-stone-100">
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {!isExpanded && (
+              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            )}
+          </div>
+          
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-orange-600 hover:text-orange-700 transition-colors py-2 bg-stone-50 rounded-2xl border border-stone-100/50"
+          >
+            {isExpanded ? (
+              <>Thu gọn <ChevronUp className="w-3 h-3" /></>
+            ) : (
+              <>Xem lịch trình chi tiết <ChevronDown className="w-3 h-3" /></>
+            )}
+          </button>
+        </div>
+      ) : tour.planRoute ? (
         <div className="space-y-2">
           <div 
-            onClick={() => hasLongRoute && setIsExpanded(!isExpanded)}
-            className={`text-xs text-stone-600 bg-stone-50/50 p-4 rounded-2xl border border-stone-100/50 transition-all cursor-pointer hover:bg-stone-50 ${!isExpanded && hasLongRoute ? 'line-clamp-4' : ''}`}
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`text-xs text-stone-600 bg-stone-50/50 p-4 rounded-2xl border border-stone-100/50 transition-all cursor-pointer hover:bg-stone-50 ${!isExpanded ? 'line-clamp-4' : ''}`}
           >
             <p className="font-bold text-[9px] uppercase tracking-widest text-stone-400 mb-2">Lịch trình dự kiến</p>
             <div className="whitespace-pre-wrap leading-relaxed">
               {tour.planRoute}
             </div>
           </div>
-          {hasLongRoute && (
-            <button 
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="w-full flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-orange-600 hover:text-orange-700 transition-colors py-1"
-            >
-              {isExpanded ? (
-                <>Thu gọn <ChevronUp className="w-3 h-3" /></>
-              ) : (
-                <>Xem chi tiết <ChevronDown className="w-3 h-3" /></>
-              )}
-            </button>
-          )}
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-orange-600 hover:text-orange-700 transition-colors py-1"
+          >
+            {isExpanded ? (
+              <>Thu gọn <ChevronUp className="w-3 h-3" /></>
+            ) : (
+              <>Xem chi tiết <ChevronDown className="w-3 h-3" /></>
+            )}
+          </button>
         </div>
-      )}
+      ) : null}
 
       {tour.notes && (
         <div className="pt-2 border-t border-stone-50">
@@ -293,27 +455,29 @@ export default function Admin({ userProfile }: AdminProps) {
       </header>
 
       {/* Main Navigation Tabs */}
-      <nav className="flex items-center gap-1 p-1 bg-stone-100 rounded-2xl w-fit">
-        {[
-          { id: 'locations', label: 'Địa điểm & Khách sạn', icon: MapPin },
-          { id: 'reminders', label: 'Lời nhắc', icon: BellRing },
-          { id: 'tours', label: 'Quản lý Tour', icon: CalendarDays },
-          { id: 'cities', label: 'Thành phố', icon: Globe },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-              activeTab === tab.id 
-                ? 'bg-white text-stone-900 shadow-sm' 
-                : 'text-stone-500 hover:text-stone-700'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <div className="overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <nav className="flex items-center gap-1 p-1 bg-stone-100 rounded-2xl w-max sm:w-fit min-w-full sm:min-w-0">
+          {[
+            { id: 'locations', label: 'Địa điểm & Khách sạn', icon: MapPin },
+            { id: 'reminders', label: 'Lời nhắc', icon: BellRing },
+            { id: 'tours', label: 'Quản lý Tour', icon: CalendarDays },
+            { id: 'cities', label: 'Thành phố', icon: Globe },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                activeTab === tab.id 
+                  ? 'bg-white text-stone-900 shadow-sm' 
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5 sm:w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
       <div className="pt-4">
         {activeTab === 'locations' && (
@@ -407,20 +571,10 @@ export default function Admin({ userProfile }: AdminProps) {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => { setEditingAttraction(attraction); setShowAttractionForm(true); }}
-                                  className="p-2 text-stone-400 hover:text-orange-600 transition-colors"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteAttraction(attraction.id)}
-                                  className="p-2 text-stone-400 hover:text-red-600 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                              <ActionMenu 
+                                onEdit={() => { setEditingAttraction(attraction); setShowAttractionForm(true); }}
+                                onDelete={() => handleDeleteAttraction(attraction.id)}
+                              />
                             </div>
                           ))}
                           {cityAttractions.length === 0 && (
@@ -447,20 +601,10 @@ export default function Admin({ userProfile }: AdminProps) {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => { setEditingHotel(hotel); setShowHotelForm(true); }}
-                                  className="p-2 text-stone-400 hover:text-orange-600 transition-colors"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteHotel(hotel.id)}
-                                  className="p-2 text-stone-400 hover:text-red-600 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                              <ActionMenu 
+                                onEdit={() => { setEditingHotel(hotel); setShowHotelForm(true); }}
+                                onDelete={() => handleDeleteHotel(hotel.id)}
+                              />
                             </div>
                           ))}
                           {cityHotels.length === 0 && (
@@ -501,14 +645,10 @@ export default function Admin({ userProfile }: AdminProps) {
                             <p className="text-[9px] text-stone-500 uppercase tracking-wider font-bold">{hotel.location}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditingHotel(hotel); setShowHotelForm(true); }} className="p-2 text-stone-400 hover:text-orange-600 transition-colors">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeleteHotel(hotel.id)} className="p-2 text-stone-400 hover:text-red-600 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <ActionMenu 
+                          onEdit={() => { setEditingHotel(hotel); setShowHotelForm(true); }}
+                          onDelete={() => handleDeleteHotel(hotel.id)}
+                        />
                       </div>
                     ))}
                   </div>
@@ -537,19 +677,11 @@ export default function Admin({ userProfile }: AdminProps) {
                       <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{reminder.category}</span>
                     </div>
                   </div>
-                  <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => { setEditingReminder(reminder); setShowReminderForm(true); }}
-                      className="p-2 bg-stone-50 text-stone-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteReminder(reminder.id)}
-                      className="p-2 bg-stone-50 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="absolute top-6 right-6">
+                    <ActionMenu 
+                      onEdit={() => { setEditingReminder(reminder); setShowReminderForm(true); }}
+                      onDelete={() => handleDeleteReminder(reminder.id)}
+                    />
                   </div>
                 </div>
               ))}
@@ -574,6 +706,8 @@ export default function Admin({ userProfile }: AdminProps) {
                 <TourCard 
                   key={tour.id} 
                   tour={tour} 
+                  attractions={attractions}
+                  hotels={hotels}
                   onEdit={(t) => { setEditingTour(t); setShowTourForm(true); }} 
                   onDelete={handleDeleteTour} 
                 />
@@ -604,20 +738,10 @@ export default function Admin({ userProfile }: AdminProps) {
                       <p className="text-[10px] text-stone-400 font-bold uppercase tracking-wider">{city.cityId}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => { setEditingCity(city); setShowCityForm(true); }}
-                      className="p-2 text-stone-400 hover:text-orange-600 transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteCity(city.id)}
-                      className="p-2 text-stone-400 hover:text-red-600 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <ActionMenu 
+                    onEdit={() => { setEditingCity(city); setShowCityForm(true); }}
+                    onDelete={() => handleDeleteCity(city.id)}
+                  />
                 </div>
               ))}
               {cities.length === 0 && (
