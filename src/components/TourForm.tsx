@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, updateDoc, doc, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Tour, ItineraryDay, ItineraryItem, Attraction, Hotel } from '../types';
-import { X, Save, Calendar, Users, Wallet, Map, Plus, Trash2, ChevronDown, ChevronUp, Clock, MapPin, ListPlus, FileText, FileDown, Hotel as HotelIcon } from 'lucide-react';
+import { X, Save, Calendar, Users, Wallet, Map, Plus, Trash2, ChevronDown, ChevronUp, Clock, MapPin, ListPlus, FileText, FileDown, Hotel as HotelIcon, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { TourPDF } from './TourPDF';
 
@@ -30,6 +31,7 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
   const populateFromPDF = () => {
     const pdfItinerary: ItineraryDay[] = [
       {
+        id: Math.random().toString(36).substr(2, 9),
         dayNumber: 1,
         title: "Thượng Hải: Nanjing Lu & Bến Thượng Hải",
         items: [
@@ -67,6 +69,7 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
         ]
       },
       {
+        id: Math.random().toString(36).substr(2, 9),
         dayNumber: 2,
         title: "Wukang Road & Yu Garden",
         items: [
@@ -92,6 +95,7 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
         ]
       },
       {
+        id: Math.random().toString(36).substr(2, 9),
         dayNumber: 3,
         title: "Huaihai Road & Xintiandi",
         items: [
@@ -123,6 +127,7 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
         ]
       },
       {
+        id: Math.random().toString(36).substr(2, 9),
         dayNumber: 4,
         title: "Tô Châu & Ô Trấn",
         items: [
@@ -161,15 +166,20 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
 
   useEffect(() => {
     if (tour) {
+      const itineraryWithIds = (tour.itinerary || []).map(day => ({
+        ...day,
+        id: day.id || Math.random().toString(36).substr(2, 9)
+      }));
       setFormData({
         ...tour,
-        itinerary: tour.itinerary || []
+        itinerary: itineraryWithIds
       });
     }
   }, [tour]);
 
   const addDay = () => {
     const newDay: ItineraryDay = {
+      id: Math.random().toString(36).substr(2, 9),
       dayNumber: (formData.itinerary?.length || 0) + 1,
       items: []
     };
@@ -177,6 +187,24 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
       ...formData,
       itinerary: [...(formData.itinerary || []), newDay]
     });
+  };
+
+  const reorderDays = (newItinerary: ItineraryDay[]) => {
+    // Re-number days based on new order
+    const renumbered = newItinerary.map((day, i) => ({ ...day, dayNumber: i + 1 }));
+    setFormData({ ...formData, itinerary: renumbered });
+  };
+
+  const moveDay = (index: number, direction: 'up' | 'down') => {
+    const newItinerary = [...(formData.itinerary || [])];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (newIndex < 0 || newIndex >= newItinerary.length) return;
+    
+    const [movedDay] = newItinerary.splice(index, 1);
+    newItinerary.splice(newIndex, 0, movedDay);
+    
+    reorderDays(newItinerary);
   };
 
   const removeDay = (index: number) => {
@@ -407,11 +435,23 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
               </div>
             </div>
 
-            <div className="space-y-8">
+            <Reorder.Group 
+              axis="y" 
+              values={formData.itinerary || []} 
+              onReorder={reorderDays}
+              className="space-y-8"
+            >
               {formData.itinerary?.map((day, dayIndex) => (
-                <div key={dayIndex} className="bg-stone-50/50 rounded-[2rem] border border-stone-100 p-6 space-y-6 relative group/day">
+                <Reorder.Item 
+                  key={day.id} 
+                  value={day}
+                  className="bg-stone-50/50 rounded-[2rem] border border-stone-100 p-6 space-y-6 relative group/day"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
+                      <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-stone-200 rounded-md transition-colors">
+                        <GripVertical className="w-5 h-5 text-stone-300" />
+                      </div>
                       <div className="w-12 h-12 bg-stone-900 text-white rounded-2xl flex items-center justify-center font-serif italic text-xl">
                         {day.dayNumber}
                       </div>
@@ -426,13 +466,33 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
                         className="bg-transparent border-b border-stone-200 focus:border-orange-500 outline-none py-1 text-lg font-bold text-stone-900 placeholder:text-stone-300 transition-all"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeDay(dayIndex)}
-                      className="p-2 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover/day:opacity-100"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <div className="flex flex-col gap-1 mr-2">
+                        <button
+                          type="button"
+                          disabled={dayIndex === 0}
+                          onClick={() => moveDay(dayIndex, 'up')}
+                          className="p-1 text-stone-300 hover:text-orange-600 disabled:opacity-0 transition-all"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={dayIndex === (formData.itinerary?.length || 0) - 1}
+                          onClick={() => moveDay(dayIndex, 'down')}
+                          className="p-1 text-stone-300 hover:text-orange-600 disabled:opacity-0 transition-all"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDay(dayIndex)}
+                        className="p-2 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover/day:opacity-100"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
@@ -539,14 +599,14 @@ export default function TourForm({ tour, onClose }: TourFormProps) {
                       <Plus className="w-4 h-4" /> Thêm hoạt động
                     </button>
                   </div>
-                </div>
+                </Reorder.Item>
               ))}
-              {(!formData.itinerary || formData.itinerary.length === 0) && (
-                <div className="py-12 text-center bg-stone-50 rounded-[2.5rem] border border-dashed border-stone-200">
-                  <p className="text-stone-400 italic text-sm">Chưa có lịch trình chi tiết. Hãy thêm ngày mới!</p>
-                </div>
-              )}
-            </div>
+            </Reorder.Group>
+            {(!formData.itinerary || formData.itinerary.length === 0) && (
+              <div className="py-12 text-center bg-stone-50 rounded-[2.5rem] border border-dashed border-stone-200">
+                <p className="text-stone-400 italic text-sm">Chưa có lịch trình chi tiết. Hãy thêm ngày mới!</p>
+              </div>
+            )}
           </section>
 
           <section className="space-y-4">

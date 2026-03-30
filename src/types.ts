@@ -36,6 +36,7 @@ export interface ItineraryItem {
 }
 
 export interface ItineraryDay {
+  id?: string;
   dayNumber: number;
   title?: string;
   items: ItineraryItem[];
